@@ -1,0 +1,27 @@
+name: LiveDropper
+version: 1.0
+
+main: org.craft.wp.Main
+api-version: '1.20'
+commands:
+  dp:
+  setphase:
+    description: Define a coordenada de uma fase.
+  modifylevel:
+    description: Altera o nível do jogador subtraindo ou somando o nível atual através de inputs do console/S2E.
+  checkpoint:
+    description: Teleporta o player de volta ao seu último checkpoint
+  reset:
+    description: Faz o player entrar em modo de reset com o tempo para alguem salva-lo
+  removereset:
+    description: Remove o status de reset do player voltando para o nível que estava atualmente
+  dpstart:
+    description: Inicia o dropper e suas interações e reinicia
+  dpstop:
+    description: Reinicia o dropper e suas interações
+  shootarrow:
+    description: Comando de interação de live para atirar uma flecha no player
+  slowfall:
+    description: Comando de interação de live para fazer o player cair lentamente
+  removeholograms:
+    description: Remove todos os hologramas de fases do mapa
