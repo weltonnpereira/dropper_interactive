@@ -22,7 +22,6 @@ public final class Main extends JavaPlugin {
     private FileConfiguration config;
     private File configFile;
 
-
     @Override
     public void onEnable() {
         // Plugin startup logic

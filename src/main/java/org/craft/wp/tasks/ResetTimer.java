@@ -1,11 +1,21 @@
 package org.craft.wp.tasks;
 
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.craft.wp.manager.GameManager;
 
+import java.time.Duration;
+
 public class ResetTimer extends BukkitRunnable {
+
+    private static final String RESET_ICON = "\uE002";
+    private static final Key ICON_FONT = Key.key("livedropper", "messages");
 
     private final GameManager gameManager;
     private final Player player;
@@ -31,12 +41,24 @@ public class ResetTimer extends BukkitRunnable {
             return;
         }
 
-        String color = (secondsLeft <= 10) ? "§c§l" : (secondsLeft <= 30) ? "§e§l" : "§a§l";
+        NamedTextColor color = (secondsLeft <= 10)
+                ? NamedTextColor.RED
+                : (secondsLeft <= 30) ? NamedTextColor.YELLOW : NamedTextColor.GREEN;
 
-        player.sendTitle(
-                color + secondsLeft,
-                "§c§lRESET",
-                0, 25, 0
+        Component countdown = Component.text(
+                Integer.toString(secondsLeft),
+                color,
+                TextDecoration.BOLD
+        ).append(Component.text(RESET_ICON, NamedTextColor.WHITE).font(ICON_FONT));
+
+        Component subtitle = Component.text("SALVE DO RESET", NamedTextColor.RED, TextDecoration.BOLD);
+
+        player.showTitle(
+                Title.title(
+                        countdown,
+                        subtitle,
+                        Title.Times.times(Duration.ZERO, Duration.ofMillis(1250), Duration.ZERO)
+                )
         );
 
         if (secondsLeft <= 10) {

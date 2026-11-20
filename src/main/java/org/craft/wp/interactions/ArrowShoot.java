@@ -1,5 +1,9 @@
 package org.craft.wp.interactions;
 
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -8,8 +12,19 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.craft.wp.manager.GameManager;
+import org.craft.wp.tasks.ActionBarLoop;
 
 public class ArrowShoot {
+
+    private static final String ARROW_ICON = "\uE003";
+    private static final Key MESSAGE_FONT = Key.key("livedropper", "messages");
+    private static final int HIT_MESSAGE_DURATION_TICKS = 40;
+    private static final int PANEL_CELL_WIDTH = 12;
+    private static final int PANEL_PADDING = 6;
+    private static final char PANEL_LEFT = '\uE004';
+    private static final char PANEL_MIDDLE = '\uE005';
+    private static final char PANEL_RIGHT = '\uE006';
+    private static final char PANEL_BACKTRACK = '\uE010';
 
     private final GameManager gameManager;
 
@@ -46,7 +61,6 @@ public class ArrowShoot {
                 if (!player.isOnline()) return;
 
                 player.damage(0.0); // Flash vermelho de dano sem tirar vida
-
                 Vector knockback = finalDirection.clone().multiply(-0.9).setY(0.15);
                 player.setVelocity(knockback);
             }, 1L);
