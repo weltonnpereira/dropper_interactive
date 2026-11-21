@@ -10,6 +10,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.craft.wp.manager.GameManager;
 
 public class Auxiliaries implements Listener {
@@ -45,28 +46,36 @@ public class Auxiliaries implements Listener {
 
     @EventHandler
     public void onPlayerDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
+        if (!(event.getEntity() instanceof Player player)) return;
 
-        Player player = (Player) event.getEntity();
+        // Enquanto isPlaying estiver ativo, o player não toma dano
+        if (gameManager.getGame().isPlaying(player)) {
+            // Mantém apenas o knockback da flecha (interação do chat) com dano zerado
+            if (event instanceof EntityDamageByEntityEvent byEntity && byEntity.getDamager() instanceof Arrow) {
+                if (gameManager.getLive().getJail().isInJail(player) ||
+                        gameManager.getLive().getReset().isResetting(player) ||
+                        gameManager.getGame().isWinner(player)) {
+                    event.setCancelled(true);
+                    return;
+                }
+                event.setDamage(0.0);
+                return;
+            }
 
-        // Se não estiver jogando, ou estiver em jail/reset/winner, protege de dano
-        if (!gameManager.getGame().isPlaying(player) ||
-                gameManager.getLive().getJail().isInJail(player) ||
-                gameManager.getLive().getReset().isResetting(player) ||
-                gameManager.getGame().isWinner(player)) {
-
+            // Cancela qualquer outro dano (queda, fogo, lava, sufocamento, mobs, etc.)
             event.setCancelled(true);
-            return;
         }
+    }
 
-        if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
-            event.setCancelled(true);
-            return;
-        }
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
 
-        // Para qualquer outro dano letal (ex: lava, fogo, etc.), tratamos como morte no dropper
-        if (player.getHealth() - event.getDamage() <= 0) {
+        if (gameManager.getGame().isPlaying(player)) {
             event.setCancelled(true);
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+
             gameManager.resetStatusPlayer(player);
 
             if (gameManager.getLive().getJail().isInJail(player)) {

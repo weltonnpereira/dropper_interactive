@@ -9,21 +9,16 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.craft.wp.manager.GameManager;
 
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
 
 public class ActionBarLoop extends BukkitRunnable {
 
     private final GameManager gameManager;
-    private final Map<UUID, TemporaryMessage> temporaryMessages = new HashMap<>();
 
     private boolean shouldContinue = true;
 
     private static final String FEATHER_ICON = "\uE001";
     private static final Key FEATHER_FONT = Key.key("livedropper", "messages");
-    private static final long NANOS_PER_TICK = 50_000_000L;
 
     public ActionBarLoop(GameManager gameManager) {
         this.gameManager = gameManager;
@@ -40,21 +35,9 @@ public class ActionBarLoop extends BukkitRunnable {
             return;
         }
 
-        long currentTime = System.nanoTime();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!gameManager.getGame().isPlaying(player)) {
                 continue; // Pula quem não está jogando sem cancelar o loop para os outros
-            }
-
-            UUID playerId = player.getUniqueId();
-            TemporaryMessage temporaryMessage = temporaryMessages.get(playerId);
-            if (temporaryMessage != null) {
-                if (currentTime < temporaryMessage.expiresAtNanos()) {
-                    player.sendActionBar(temporaryMessage.component());
-                    continue;
-                }
-
-                temporaryMessages.remove(playerId);
             }
 
             int actualLevel = gameManager.getGame().getActualLevel(player);
@@ -75,8 +58,5 @@ public class ActionBarLoop extends BukkitRunnable {
 
             player.sendActionBar(Component.text(baseText).font(FEATHER_FONT));
         }
-    }
-
-    private record TemporaryMessage(Component component, long expiresAtNanos) {
     }
 }
