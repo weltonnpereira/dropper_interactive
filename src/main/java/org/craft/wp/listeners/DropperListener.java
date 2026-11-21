@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.craft.wp.manager.GameManager;
 
 public class DropperListener implements Listener {
@@ -20,19 +21,19 @@ public class DropperListener implements Listener {
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        Location from = event.getFrom();
+        Location to = event.getTo();
 
         if (player.getGameMode() != GameMode.SURVIVAL && player.getGameMode() != GameMode.ADVENTURE) {
             return;
         }
 
-        // Reset/Winner
-        if (gameManager.getLive().getReset().isResetting(player) || gameManager.getGame().isWinner(player)) {
-            Location from = event.getFrom();
-            Location to = event.getTo();
+        if (to == null) return;
 
-            if (to != null && (from.getBlockX() != to.getBlockX() ||
+        if (gameManager.getLive().getReset().isResetting(player) || gameManager.getGame().isWinner(player)) {
+            if (from.getBlockX() != to.getBlockX() ||
                     from.getBlockY() != to.getBlockY() ||
-                    from.getBlockZ() != to.getBlockZ())) {
+                    from.getBlockZ() != to.getBlockZ()) {
 
                 Location freezeLoc = from.clone();
                 freezeLoc.setYaw(to.getYaw());
@@ -40,7 +41,19 @@ public class DropperListener implements Listener {
 
                 player.teleport(freezeLoc);
             }
+            return;
         }
+
+        if (event.isCancelled() || event instanceof PlayerTeleportEvent
+                || !gameManager.getGame().isPlaying(player)) {
+            return;
+        }
+
+        if (from.getX() == to.getX() && from.getY() == to.getY() && from.getZ() == to.getZ()) {
+            return;
+        }
+
+        gameManager.getGame().checkDropperCollision(player, from, to);
     }
 
     @EventHandler

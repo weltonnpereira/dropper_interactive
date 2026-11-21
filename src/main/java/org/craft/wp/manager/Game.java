@@ -5,10 +5,8 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
 import org.craft.wp.tasks.ActionBarLoop;
-import org.craft.wp.tasks.DropperCollisionTask;
 import org.craft.wp.tasks.WinnerTask;
 
 import java.util.UUID;
@@ -56,7 +54,6 @@ public class Game {
 
         player.setGameMode(GameMode.ADVENTURE);
         player.teleport(level1);
-        this.startCollisionTask(player);
         player.sendMessage("§a[Dropper] Você iniciou o desafio de queda livre!");
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
     }
@@ -72,7 +69,6 @@ public class Game {
             this.cancelWinnerTask(player);
         }
 
-        this.cancelCollisionTask(uuid);
         gameManager.playingPlayers.remove(uuid);
         gameManager.playerLevels.remove(uuid);
 
@@ -118,92 +114,9 @@ public class Game {
         firework.setFireworkMeta(meta);
     }
 
-    /**
-     * Lógica principal chamada a cada movimento ou tick do jogador para checar se ele caiu na água ou bateu em algo.
-     */
-//    public void checkDropperCollision(Player player) {
-//        if (!isPlaying(player)) return;
-//
-//        Location playerLoc = player.getLocation();
-//        int currentLevel = this.getActualLevel(player);
-//        int effectivePhase = gameManager.getPhase().getEffectivePhase(currentLevel);
-//
-//        Location spawnLoc = gameManager.getPhase().getPhaseSpawn(effectivePhase);
-//        Location goalLoc = gameManager.getPhase().getPhaseGoal(effectivePhase);
-//
-//        if (spawnLoc == null || goalLoc == null) return;
-//
-//        // Zona segura da plataforma de spawn (permite andar antes de pular)
-//        if (Math.abs(playerLoc.getBlockY() - spawnLoc.getBlockY()) <= 2.5) {
-//            return;
-//        }
-//
-//        Block blockAtFeet = playerLoc.getBlock();
-//        Block blockBelow = playerLoc.clone().subtract(0, 1, 0).getBlock();
-//
-//        // CONDIÇÃO DE VITÓRIA (Qualquer poça de água na altura Y do goal)
-//        boolean isWater = (blockAtFeet.getType() == Material.WATER || blockBelow.getType() == Material.WATER);
-//        boolean atGoalHeight = playerLoc.getWorld().equals(goalLoc.getWorld()) &&
-//                Math.abs(playerLoc.getBlockY() - goalLoc.getBlockY()) <= 2;
-//
-//        if (isWater && atGoalHeight) {
-//            this.advanceDropperPhase(player);
-//            return;
-//        }
-//
-//        BoundingBox playerBox = player.getBoundingBox().expand(0.01, 0.02, 0.01);
-//
-//        World world = player.getWorld();
-//        boolean hitSolid = false;
-//
-//        int minX = (int) Math.floor(playerBox.getMinX());
-//        int maxX = (int) Math.floor(playerBox.getMaxX());
-//        int minY = (int) Math.floor(playerBox.getMinY());
-//        int maxY = (int) Math.floor(playerBox.getMaxY());
-//        int minZ = (int) Math.floor(playerBox.getMinZ());
-//        int maxZ = (int) Math.floor(playerBox.getMaxZ());
-//
-//        // Varre os blocos ao redor e valida a interseção física
-//        for (int x = minX; x <= maxX; x++) {
-//            for (int y = minY; y <= maxY; y++) {
-//                for (int z = minZ; z <= maxZ; z++) {
-//                    Block block = world.getBlockAt(x, y, z);
-//                    if (isSolidBlock(block)) {
-//                        BoundingBox blockBox = block.getBoundingBox();
-//
-//                        // Verifica se há sobreposição real
-//                        if (playerBox.overlaps(blockBox)) {
-//
-//                            // --- FILTRO INTELIGENTE: LATERAL VS TOPO ---
-//                            // Se a parte inferior dos pés do jogador estiver abaixo do topo do bloco,
-//                            // significa que ele apenas roçou/bateu na lateral. Nós IGNORAMOS!
-//                            // Só consideramos derrota se ele realmente aterrissar em cima do bloco (pés >= topo do bloco).
-//                            double playerFeetY = playerBox.getMinY();
-//                            double blockTopY = blockBox.getMaxY();
-//
-//                            // Margem de tolerância pequena (0.15) para garantir que pousos no topo sejam pegos com precisão
-//                            if (playerFeetY >= (blockTopY - 0.15)) {
-//                                hitSolid = true;
-//                                break;
-//                            }
-//                        }
-//                    }
-//                }
-//                if (hitSolid) break;
-//            }
-//            if (hitSolid) break;
-//        }
-//
-//        if (hitSolid) {
-//            player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_BIG_FALL, 0.2f, 1.0f);
-//            this.returnCheckpoint(player, false);
-//        }
-//    }
+    public void checkDropperCollision(Player player, Location from, Location to) {
+        if (!isPlaying(player) || !from.getWorld().equals(to.getWorld())) return;
 
-    public void checkDropperCollision(Player player) {
-        if (!isPlaying(player)) return;
-
-        Location playerLoc = player.getLocation();
         int currentLevel = this.getActualLevel(player);
         int effectivePhase = gameManager.getPhase().getEffectivePhase(currentLevel);
 
@@ -213,66 +126,123 @@ public class Game {
         if (spawnLoc == null || goalLoc == null) return;
 
         // 1. Zona segura da plataforma de spawn (permite andar antes de pular)
-        if (Math.abs(playerLoc.getBlockY() - spawnLoc.getBlockY()) <= 2.5) {
+        if (Math.abs(to.getBlockY() - spawnLoc.getBlockY()) <= 2.5) {
             return;
         }
 
-        Block blockAtFeet = playerLoc.getBlock();
-        Block blockBelow = playerLoc.clone().subtract(0, 1, 0).getBlock();
+        BoundingBox playerBox = player.getBoundingBox();
+        double halfWidthX = (playerBox.getMaxX() - playerBox.getMinX()) / 2.0;
+        double halfWidthZ = (playerBox.getMaxZ() - playerBox.getMinZ()) / 2.0;
+        double playerHeight = playerBox.getMaxY() - playerBox.getMinY();
 
-        // CONDIÇÃO DE VITÓRIA (Qualquer poça de água na altura Y do goal)
-        boolean isWater = (blockAtFeet.getType() == Material.WATER || blockBelow.getType() == Material.WATER);
-        boolean atGoalHeight = playerLoc.getWorld().equals(goalLoc.getWorld()) &&
-                Math.abs(playerLoc.getBlockY() - goalLoc.getBlockY()) <= 2;
-
-        if (isWater && atGoalHeight) {
+        boolean atGoalHeight = to.getWorld().equals(goalLoc.getWorld())
+                && Math.abs(to.getBlockY() - goalLoc.getBlockY()) <= 2;
+        if (atGoalHeight && touchesMaterialAlongPath(
+                from, to, halfWidthX, halfWidthZ, playerHeight, Material.WATER)) {
             this.advanceDropperPhase(player);
             return;
         }
 
-        // Se a física nativa do Minecraft detectou que o player pisou em qualquer bloco/quina (isOnGround), já marca derrota direto
-        boolean hitSolid = player.isOnGround();
-
-        if (!hitSolid) {
-            BoundingBox playerBox = player.getBoundingBox().expand(0.02, 0.05, 0.02);
-            World world = player.getWorld();
-
-            int minX = (int) Math.floor(playerBox.getMinX());
-            int maxX = (int) Math.floor(playerBox.getMaxX());
-            int minY = (int) Math.floor(playerBox.getMinY());
-            int maxY = (int) Math.floor(playerBox.getMaxY());
-            int minZ = (int) Math.floor(playerBox.getMinZ());
-            int maxZ = (int) Math.floor(playerBox.getMaxZ());
-
-            for (int x = minX; x <= maxX; x++) {
-                for (int y = minY; y <= maxY; y++) {
-                    for (int z = minZ; z <= maxZ; z++) {
-                        Block block = world.getBlockAt(x, y, z);
-                        if (isSolidBlock(block)) {
-                            BoundingBox blockBox = block.getBoundingBox();
-
-                            if (playerBox.overlaps(blockBox)) {
-                                double playerFeetY = playerBox.getMinY();
-                                double blockTopY = blockBox.getMaxY();
-
-                                // Ignora raspões laterais; só mata se aterrisar no topo
-                                if (playerFeetY >= (blockTopY - 0.25)) {
-                                    hitSolid = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (hitSolid) break;
-                }
-                if (hitSolid) break;
-            }
-        }
+        boolean hitSolid = player.isOnGround()
+                || touchesSolidAlongPath(from, to, halfWidthX, halfWidthZ, playerHeight);
 
         if (hitSolid) {
-            player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_BIG_FALL, 0.2f, 1.0f);
+            player.playSound(to, Sound.ENTITY_GENERIC_BIG_FALL, 0.2f, 1.0f);
             this.returnCheckpoint(player, false);
         }
+    }
+
+    private boolean touchesSolidAlongPath(
+            Location from, Location to, double halfWidthX, double halfWidthZ, double playerHeight) {
+        World world = from.getWorld();
+        double minX = Math.min(from.getX(), to.getX()) - halfWidthX;
+        double maxX = Math.max(from.getX(), to.getX()) + halfWidthX;
+        double minY = Math.min(from.getY(), to.getY()) - playerHeight;
+        double maxY = Math.max(from.getY(), to.getY());
+        double minZ = Math.min(from.getZ(), to.getZ()) - halfWidthZ;
+        double maxZ = Math.max(from.getZ(), to.getZ()) + halfWidthZ;
+        double epsilon = 1.0E-7;
+
+        for (int x = (int) Math.floor(minX - epsilon); x <= Math.floor(maxX + epsilon); x++) {
+            for (int y = (int) Math.floor(minY - epsilon); y <= Math.floor(maxY + epsilon); y++) {
+                for (int z = (int) Math.floor(minZ - epsilon); z <= Math.floor(maxZ + epsilon); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!isSolidBlock(block)) continue;
+
+                    BoundingBox blockBox = block.getBoundingBox();
+                    BoundingBox playerPathBounds = new BoundingBox(
+                            blockBox.getMinX() - halfWidthX - epsilon,
+                            blockBox.getMinY() - playerHeight - epsilon,
+                            blockBox.getMinZ() - halfWidthZ - epsilon,
+                            blockBox.getMaxX() + halfWidthX + epsilon,
+                            blockBox.getMaxY() + epsilon,
+                            blockBox.getMaxZ() + halfWidthZ + epsilon);
+
+                    if (segmentIntersects(from, to, playerPathBounds)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean touchesMaterialAlongPath(
+            Location from, Location to,
+            double halfWidthX, double halfWidthZ, double playerHeight,
+            Material material) {
+        World world = from.getWorld();
+        double minX = Math.min(from.getX(), to.getX()) - halfWidthX;
+        double maxX = Math.max(from.getX(), to.getX()) + halfWidthX;
+        double minY = Math.min(from.getY(), to.getY()) - playerHeight;
+        double maxY = Math.max(from.getY(), to.getY());
+        double minZ = Math.min(from.getZ(), to.getZ()) - halfWidthZ;
+        double maxZ = Math.max(from.getZ(), to.getZ()) + halfWidthZ;
+        double epsilon = 1.0E-7;
+
+        for (int x = (int) Math.floor(minX - epsilon); x <= Math.floor(maxX + epsilon); x++) {
+            for (int y = (int) Math.floor(minY - epsilon); y <= Math.floor(maxY + epsilon); y++) {
+                for (int z = (int) Math.floor(minZ - epsilon); z <= Math.floor(maxZ + epsilon); z++) {
+                    if (world.getBlockAt(x, y, z).getType() != material) continue;
+
+                    BoundingBox waterBox = new BoundingBox(x, y, z, x + 1, y + 1, z + 1);
+                    BoundingBox playerPathBounds = new BoundingBox(
+                            waterBox.getMinX() - halfWidthX - epsilon,
+                            waterBox.getMinY() - playerHeight - epsilon,
+                            waterBox.getMinZ() - halfWidthZ - epsilon,
+                            waterBox.getMaxX() + halfWidthX + epsilon,
+                            waterBox.getMaxY() + epsilon,
+                            waterBox.getMaxZ() + halfWidthZ + epsilon);
+
+                    if (segmentIntersects(from, to, playerPathBounds)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean segmentIntersects(Location from, Location to, BoundingBox box) {
+        double[] interval = {0.0, 1.0};
+        return clipSegmentAxis(from.getX(), to.getX() - from.getX(), box.getMinX(), box.getMaxX(), interval)
+                && clipSegmentAxis(from.getY(), to.getY() - from.getY(), box.getMinY(), box.getMaxY(), interval)
+                && clipSegmentAxis(from.getZ(), to.getZ() - from.getZ(), box.getMinZ(), box.getMaxZ(), interval);
+    }
+
+    private boolean clipSegmentAxis(
+            double start, double delta, double min, double max, double[] interval) {
+        if (Math.abs(delta) < 1.0E-12) {
+            return start >= min && start <= max;
+        }
+
+        double entry = (min - start) / delta;
+        double exit = (max - start) / delta;
+        if (entry > exit) {
+            double swap = entry;
+            entry = exit;
+            exit = swap;
+        }
+
+        interval[0] = Math.max(interval[0], entry);
+        interval[1] = Math.min(interval[1], exit);
+        return interval[0] <= interval[1];
     }
 
     private boolean isSolidBlock(Block block) {
@@ -369,21 +339,4 @@ public class Game {
         }
     }
 
-    public void startCollisionTask(Player player) {
-        UUID uuid = player.getUniqueId();
-        this.cancelCollisionTask(uuid);
-
-        // Roda a cada 1 ou 2 ticks (1L = 20x por segundo, resposta instantânea sem delay)
-        BukkitTask task = new DropperCollisionTask(gameManager, uuid)
-                .runTaskTimer(gameManager.getPlugin(), 0L, 1L);
-
-        gameManager.collisionTasks.put(uuid, task);
-    }
-
-    public void cancelCollisionTask(UUID uuid) {
-        BukkitTask task = gameManager.collisionTasks.remove(uuid);
-        if (task != null && !task.isCancelled()) {
-            task.cancel();
-        }
-    }
 }

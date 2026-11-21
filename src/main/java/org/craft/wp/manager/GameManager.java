@@ -35,9 +35,6 @@ public class GameManager {
     // playerLevels
     public HashMap<UUID, Integer> playerLevels = new HashMap<>();
 
-    // collisionChecker
-    public Map<UUID, BukkitTask> collisionTasks = new HashMap<>();
-
     //winner
     public HashMap<UUID, Boolean> inWinnerMode = new HashMap<>();
     public HashMap<UUID, BukkitTask> activeWinnerTasks = new HashMap<>();
