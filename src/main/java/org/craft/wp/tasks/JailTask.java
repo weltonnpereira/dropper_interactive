@@ -46,9 +46,6 @@ public class JailTask extends BukkitRunnable {
 
         if (subtitleTicksRemaining > 0) {
             subtitleTicksRemaining -= 20;
-            if (subtitleTicksRemaining <= 0) {
-                this.currentSubtitle = "§7Aguarde o tempo acabar...";
-            }
         }
 
         sendCurrentTitle();

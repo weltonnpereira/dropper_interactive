@@ -27,7 +27,7 @@ public class InteractionsCommands implements CommandExecutor {
 
     public String cmd5 = "slowfall";
 
-//    public String cmd5 = "jail";
+    public String cmd6 = "jail";
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, @NotNull String[] args) {
@@ -142,9 +142,9 @@ public class InteractionsCommands implements CommandExecutor {
             return true;
         }
 
-        if (cmd.getName().equalsIgnoreCase(cmd5)) {
+        if (cmd.getName().equalsIgnoreCase(cmd6)) {
             if (args.length < 2) {
-                sender.sendMessage("§cUse: /" + cmd5 + " <player> <arrest/release> [time/donor] [donor]");
+                sender.sendMessage("§cUse: /" + cmd6 + " <player> <arrest/release> [time/donor] [donor]");
                 return true;
             }
 
@@ -158,7 +158,7 @@ public class InteractionsCommands implements CommandExecutor {
             switch (action) {
                 case "arrest" -> {
                     if (args.length < 3) {
-                        sender.sendMessage("§cUse: /" + cmd5 + " <player> arrest <tempo_segundos> [doador]");
+                        sender.sendMessage("§cUse: /" + cmd6 + " <player> arrest <tempo_segundos> [doador]");
                         return true;
                     }
 

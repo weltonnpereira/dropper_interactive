@@ -25,5 +25,7 @@ commands:
   slowfall:
     description: Comando de interação de live para fazer o player cair lentamente
     usage: /slowfall <player> <segundos> [doador]
+  jail:
+    description: Prende o jogador por x segundos
   removeholograms:
     description: Remove todos os hologramas de fases do mapa

@@ -62,6 +62,7 @@ public final class Main extends JavaPlugin {
         this.getCommand(interactionsCommands.cmd3).setExecutor(interactionsCommands);
         this.getCommand(interactionsCommands.cmd4).setExecutor(interactionsCommands);
         this.getCommand(interactionsCommands.cmd5).setExecutor(interactionsCommands);
+        this.getCommand(interactionsCommands.cmd6).setExecutor(interactionsCommands);
 
 //        TestCommands testCommands = new TestCommands(gameManager);
 //        this.getCommand(testCommands.cmdChaos).setExecutor(testCommands);

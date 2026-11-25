@@ -3,6 +3,7 @@ package org.craft.wp.manager;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -139,134 +140,172 @@ public class GameManager {
         this.game = new Game(this);
         this.hologramManager = new HologramManager(this);
 
-        // processador da fila (Flush) que roda a cada 4 ticks (~200ms)
+        // Processa as filas a cada 5 ticks (250 ms).
         startFlushProcessor();
     }
 
     private void startFlushProcessor() {
-        flushTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            // Processa Flecha
-            ArrowAction arrowAction = arrowQueue.peek();
-            if (arrowAction != null) {
-                Player player = Bukkit.getPlayer(arrowAction.getPlayerUUID());
-                if (player == null || !player.isOnline()) {
-                    arrowQueue.poll();
-                } else if (!live.getReset().isResetting(player) && !game.isWinner(player)) {
-                    arrowQueue.poll();
-                    live.getArrow().shootFaceArrow(player, arrowAction.getDonor());
-                }
+        flushTask = Bukkit.getScheduler().runTaskTimer(plugin, this::flushQueues, 0L, 5L);
+    }
+
+    /**
+     * Processa no máximo uma ação de cada fila por ciclo, na mesma ordem de antes.
+     * Ações que aguardam uma condição continuam na fila para serem reavaliadas.
+     */
+    private void flushQueues() {
+        processArrowQueue();
+        processSlowFallingQueue();
+        processJailQueue();
+        processLevelQueue();
+        processResetQueues();
+    }
+
+    private void processArrowQueue() {
+        ArrowAction action = arrowQueue.peek();
+        if (action == null) return;
+
+        Player player = Bukkit.getPlayer(action.getPlayerUUID());
+        if (player == null || !player.isOnline()) {
+            arrowQueue.poll();
+            return;
+        }
+
+        if (live.getReset().isResetting(player) || game.isWinner(player)) return;
+
+        arrowQueue.poll();
+        live.getArrow().shootFaceArrow(player, action.getDonor());
+    }
+
+    private void processSlowFallingQueue() {
+        SlowFallingAction action = slowFallingQueue.peek();
+        if (action == null) return;
+
+        Player player = Bukkit.getPlayer(action.getPlayerUUID());
+        if (player == null || !player.isOnline()) {
+            slowFallingQueue.poll();
+            return;
+        }
+
+        if (live.getReset().isResetting(player) || game.isWinner(player)) return;
+
+        slowFallingQueue.poll();
+        live.getPotionEffects().setSlowFalling(player, action.getDuration(), action.getDonor());
+    }
+
+    private void processJailQueue() {
+        JailAction action = jailQueue.peek();
+        if (action == null) return;
+
+        Player player = Bukkit.getPlayer(action.getPlayerUUID());
+        if (player == null || !player.isOnline()) {
+            jailQueue.poll();
+            return;
+        }
+
+        // Mantém a regra existente: reset e winner bloqueiam o Jail sem remover a ação da fila.
+        if (live.getReset().isResetting(player) || game.isWinner(player)) return;
+
+        // Toda ação de Jail espera o jogador voltar à altura do spawn, inclusive se ele já está preso.
+        if (!isAtCurrentSpawnHeight(player)) return;
+
+        // No spawn, uma nova ação para quem já está preso aumenta o tempo como antes.
+        if (live.getJail().isInJail(player)) {
+            applyJailAction(player, action);
+            return;
+        }
+
+        // Não consulta blocos durante a queda; só verifica o chão ao chegar à altura do spawn.
+        Block blockAtFeet = player.getLocation().getBlock();
+        Block blockUnder = blockAtFeet.getRelative(BlockFace.DOWN);
+        Material floor = blockUnder.getType();
+        Material feet = blockAtFeet.getType();
+
+        boolean hasSafeGround = player.isOnGround() || floor.isSolid();
+        boolean isUnsafeFloor = floor.isAir() || floor == Material.WATER || floor == Material.LAVA;
+        boolean isInLiquid = feet == Material.WATER || feet == Material.LAVA;
+
+        // Exige chão seguro: cair no buraco do spawn não libera o Jail.
+        if (hasSafeGround && !isUnsafeFloor && !isInLiquid) {
+            applyJailAction(player, action);
+        }
+    }
+
+    private boolean isAtCurrentSpawnHeight(Player player) {
+        int currentLevel = game.getActualLevel(player);
+        int currentPhase = phase.getEffectivePhase(currentLevel);
+        Location spawn = phase.getPhaseSpawn(currentPhase);
+        if (spawn == null || spawn.getWorld() == null || !spawn.getWorld().equals(player.getWorld())) {
+            return false;
+        }
+
+        // Usa o mesmo limite vertical da zona segura em Game.checkDropperCollision.
+        return Math.abs(player.getLocation().getBlockY() - spawn.getBlockY()) <= 2.5;
+    }
+
+    private void applyJailAction(Player player, JailAction action) {
+        jailQueue.poll();
+        live.getJail().handleJail(player, action.getDuration(), action.getDonor());
+    }
+
+    private void processLevelQueue() {
+        LevelAction action = levelQueue.peek();
+        if (action == null) return;
+
+        Player player = Bukkit.getPlayer(action.getPlayerUUID());
+        if (player == null || !player.isOnline()) {
+            levelQueue.poll();
+            return;
+        }
+
+        if (live.getJail().isInJail(player) || live.getReset().isResetting(player)) return;
+
+        if (!game.isWinner(player)) {
+            levelQueue.poll();
+            live.getLevels().modifyLevel(player, action.getQty(), action.getDonor());
+            return;
+        }
+
+        // No winner, só ações de descer nível são permitidas; procure a primeira
+        // ação negativa desse jogador sem retirar as ações positivas bloqueadas.
+        if (action.getQty() < 0) {
+            levelQueue.poll();
+            live.getLevels().modifyLevel(player, action.getQty(), action.getDonor());
+            return;
+        }
+
+        UUID playerUUID = player.getUniqueId();
+        Iterator<LevelAction> iterator = levelQueue.iterator();
+        while (iterator.hasNext()) {
+            LevelAction queuedAction = iterator.next();
+            if (queuedAction.getPlayerUUID().equals(playerUUID) && queuedAction.getQty() < 0) {
+                iterator.remove();
+                live.getLevels().modifyLevel(player, queuedAction.getQty(), queuedAction.getDonor());
+                return;
             }
+        }
+    }
 
-            SlowFallingAction slowFallingAction = slowFallingQueue.peek();
-            if (slowFallingAction != null) {
-                Player player = Bukkit.getPlayer(slowFallingAction.getPlayerUUID());
-                if (player == null || !player.isOnline()) {
-                    slowFallingQueue.poll();
-                } else if (!live.getReset().isResetting(player) && !game.isWinner(player)) {
-                    slowFallingQueue.poll();
-                    live.getPotionEffects().setSlowFalling(
-                            player,
-                            slowFallingAction.getDuration(),
-                            slowFallingAction.getDonor()
-                    );
-                }
+    private void processResetQueues() {
+        // Cancelamentos são consumidos mesmo quando já não há reset ativo.
+        CancelResetAction cancelAction = cancelResetQueue.poll();
+        if (cancelAction != null) {
+            Player player = Bukkit.getPlayer(cancelAction.getPlayerUUID());
+            if (player != null && player.isOnline() && live.getReset().isResetting(player)) {
+                live.getReset().cancelReset(player, false, cancelAction.getDonor());
             }
+        }
 
-            // Processa jaula
-            JailAction jailAction = jailQueue.peek();
-            if (jailAction != null) {
-                Player player = Bukkit.getPlayer(jailAction.getPlayerUUID());
+        // Inícios de reset ficam aguardando enquanto o jogador estiver preso.
+        UUID resetUUID = startResetQueue.peek();
+        if (resetUUID == null) return;
 
-                if (player == null || !player.isOnline()) {
-                    jailQueue.poll();
-                } else if (!live.getReset().isResetting(player) && !game.isWinner(player)) {
-                    boolean isActuallyOnGround = player.isOnGround() ||
-                            player.getLocation().getBlock().getRelative(BlockFace.DOWN).getType().isSolid();
-
-                    Block blockUnder = player.getLocation().getBlock().getRelative(BlockFace.DOWN);
-                    Block blockAtFeet = player.getLocation().getBlock();
-
-                    // Verifica se o bloco debaixo ou o bloco onde o player está é Ar, Água ou Lava
-                    boolean isUnsafeSurface = blockUnder.getType().isAir()
-                            || blockUnder.getType() == Material.WATER
-                            || blockUnder.getType() == Material.LAVA;
-
-                    boolean isImmersedInLiquid = blockAtFeet.getType() == Material.WATER
-                            || blockAtFeet.getType() == Material.LAVA;
-
-                    // Se ele já estiver preso por algum motivo lógico anterior, processa direto
-                    if (live.getJail().isInJail(player)) {
-                        jailQueue.poll();
-                        live.getJail().handleJail(player, jailAction.getDuration(), jailAction.getDonor());
-                    }
-                    // Se ele estiver em solo firme e totalmente fora de água/lava, libera a prisão
-                    else if (isActuallyOnGround && !isUnsafeSurface && !isImmersedInLiquid) {
-                        jailQueue.poll();
-                        live.getJail().handleJail(player, jailAction.getDuration(), jailAction.getDonor());
-                    }
-                }
-            }
-
-            // Processa Nível
-            if (!levelQueue.isEmpty()) {
-                LevelAction levelAction = levelQueue.peek();
-                if (levelAction != null) {
-                    Player player = Bukkit.getPlayer(levelAction.getPlayerUUID());
-
-                    if (player == null || !player.isOnline()) {
-                        levelQueue.poll();
-                    } else if (live.getJail().isInJail(player)) {
-                    } else if (!live.getReset().isResetting(player)) {
-                        if (game.isWinner(player)) {
-                            // Se o topo for qty < 0, processa direto
-                            if (levelAction.getQty() < 0) {
-                                levelQueue.poll();
-                                live.getLevels().modifyLevel(player, levelAction.getQty(), levelAction.getDonor());
-                            } else {
-                                // Se o topo for qty > 0 (bloqueado no Winner), percorre a fila
-                                // via Iterator para buscar e processar o primeiro 'qty < 0'
-                                Iterator<LevelAction> iterator = levelQueue.iterator();
-                                while (iterator.hasNext()) {
-                                    LevelAction action = iterator.next();
-                                    Player p = Bukkit.getPlayer(action.getPlayerUUID());
-
-                                    if (p != null && p.getUniqueId().equals(player.getUniqueId()) && action.getQty() < 0) {
-                                        iterator.remove(); // Remove o elemento encontrado
-                                        live.getLevels().modifyLevel(player, action.getQty(), action.getDonor());
-                                        break; // Processa apenas um por tick para manter o cadenciamento
-                                    }
-                                }
-                            }
-                        } else {
-                            levelQueue.poll();
-                            live.getLevels().modifyLevel(player, levelAction.getQty(), levelAction.getDonor());
-                        }
-                    }
-                }
-            }
-
-            // reset
-            CancelResetAction cancelAction = cancelResetQueue.poll();
-            if (cancelAction != null) {
-                Player player = Bukkit.getPlayer(cancelAction.getPlayerUUID());
-                if (player != null && player.isOnline() && live.getReset().isResetting(player)) {
-                    live.getReset().cancelReset(player, false, cancelAction.getDonor());
-                }
-            }
-
-            UUID resetUuid = startResetQueue.peek();
-            if (resetUuid != null) {
-                Player player = Bukkit.getPlayer(resetUuid);
-                if (player == null || !player.isOnline()) {
-                    startResetQueue.poll();
-                } else if (!live.getJail().isInJail(player)) {
-                    // Se já estiver em reset, ele reinicia o timer
-                    // e se estiver no Winner ou normal, o startReset cancela a vitória e aplica o reset
-                    startResetQueue.poll();
-                    live.getReset().startReset(player);
-                }
-            }
-        }, 0L, 5L);
+        Player player = Bukkit.getPlayer(resetUUID);
+        if (player == null || !player.isOnline()) {
+            startResetQueue.poll();
+        } else if (!live.getJail().isInJail(player)) {
+            startResetQueue.poll();
+            live.getReset().startReset(player);
+        }
     }
 
     // Métodos públicos para enfileirar de forma segura (mesmo de threads externas)
