@@ -6,7 +6,7 @@ import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.util.BoundingBox;
-import org.craft.wp.tasks.ActionBarLoop;
+import org.craft.wp.tasks.BossBarLoop;
 import org.craft.wp.tasks.WinnerTask;
 
 import java.util.UUID;
@@ -49,8 +49,8 @@ public class Game {
 
         gameManager.getHologramManager().spawnAllHolograms();
         gameManager.resetStatusPlayer(player);
-        ActionBarLoop actionBarLoop = new ActionBarLoop(gameManager);
-        gameManager.setBossBar(actionBarLoop);
+        BossBarLoop bossBarLoop = new BossBarLoop(gameManager);
+        gameManager.setBossBarLoop(bossBarLoop);
 
         player.setGameMode(GameMode.ADVENTURE);
         player.teleport(level1);
@@ -71,6 +71,7 @@ public class Game {
 
         gameManager.playingPlayers.remove(uuid);
         gameManager.playerLevels.remove(uuid);
+        gameManager.hideBossBar(player);
 
         Location level1 = gameManager.getPhase().getPhaseSpawn(1);
         if (level1 != null) {
@@ -79,7 +80,9 @@ public class Game {
             player.teleport(level1);
         }
 
-        player.sendActionBar("");
+        if (gameManager.playingPlayers.isEmpty()) {
+            gameManager.stopBossBarLoop();
+        }
         player.sendMessage("§c[Dropper] Desafio encerrado e dados resetados.");
     }
 

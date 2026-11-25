@@ -21,7 +21,9 @@ commands:
     description: Reinicia o dropper e suas interações
   shootarrow:
     description: Comando de interação de live para atirar uma flecha no player
+    usage: /shootarrow <player> [doador]
   slowfall:
     description: Comando de interação de live para fazer o player cair lentamente
+    usage: /slowfall <player> <segundos> [doador]
   removeholograms:
     description: Remove todos os hologramas de fases do mapa

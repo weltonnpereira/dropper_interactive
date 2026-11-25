@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.craft.wp.manager.GameManager;
+import org.craft.wp.utils.ActionBarNotifier;
 
 public class PotionEffects {
 
@@ -21,6 +22,10 @@ public class PotionEffects {
      * @param seconds Quantidade de segundos a serem somados
      */
     public void setSlowFalling(Player player, int seconds) {
+        setSlowFalling(player, seconds, "Viewer");
+    }
+
+    public void setSlowFalling(Player player, int seconds, String donor) {
         if (player == null || !player.isOnline()) return;
 
         if (!gameManager.getGame().isPlaying(player)) {
@@ -55,6 +60,7 @@ public class PotionEffects {
         );
 
         player.addPotionEffect(slowFalling, true);
+        ActionBarNotifier.send(player, donor, "Queda Lenta");
 
         // Feedback sonoro gratificante para o chat/streamer
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);

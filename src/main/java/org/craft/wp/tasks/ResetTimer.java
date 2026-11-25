@@ -14,7 +14,8 @@ import java.time.Duration;
 
 public class ResetTimer extends BukkitRunnable {
 
-    private static final String RESET_ICON = "\uE002";
+    private static final String RESET_LABEL = "SALVE DO RESET";
+    private static final String RESET_ICON_CENTERED_BELOW = "\uE120\uE121\uE003\uE122";
     private static final Key ICON_FONT = Key.key("livedropper", "messages");
 
     private final GameManager gameManager;
@@ -49,9 +50,10 @@ public class ResetTimer extends BukkitRunnable {
                 Integer.toString(secondsLeft),
                 color,
                 TextDecoration.BOLD
-        ).append(Component.text(RESET_ICON, NamedTextColor.WHITE).font(ICON_FONT));
+        );
 
-        Component subtitle = Component.text("SALVE DO RESET", NamedTextColor.RED, TextDecoration.BOLD);
+        Component subtitle = Component.text(RESET_LABEL, NamedTextColor.RED, TextDecoration.BOLD)
+                .append(Component.text(RESET_ICON_CENTERED_BELOW, NamedTextColor.WHITE).font(ICON_FONT));
 
         player.showTitle(
                 Title.title(

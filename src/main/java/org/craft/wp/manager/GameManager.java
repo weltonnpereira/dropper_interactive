@@ -1,5 +1,7 @@
 package org.craft.wp.manager;
 
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -9,7 +11,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.craft.wp.Main;
 import org.craft.wp.interactions.Live;
 import org.craft.wp.setup.Phase;
-import org.craft.wp.tasks.ActionBarLoop;
+import org.craft.wp.tasks.BossBarLoop;
 import org.craft.wp.utils.HologramManager;
 
 import java.util.*;
@@ -27,7 +29,8 @@ public class GameManager {
 
     private final HologramManager hologramManager;
 
-    private ActionBarLoop actionBarLoop;
+    private BossBarLoop bossBarLoop;
+    private final Map<UUID, BossBar> playerBossBars = new HashMap<>();
 
     //start
     public Set<UUID> playingPlayers = new HashSet<>();
@@ -69,6 +72,19 @@ public class GameManager {
         public String getDonor() { return donor; }
     }
 
+    public static class ArrowAction {
+        private final UUID playerUUID;
+        private final String donor;
+
+        public ArrowAction(UUID playerUUID, String donor) {
+            this.playerUUID = playerUUID;
+            this.donor = donor;
+        }
+
+        public UUID getPlayerUUID() { return playerUUID; }
+        public String getDonor() { return donor; }
+    }
+
     public static class JailAction {
         private final UUID playerUUID;
         private final int duration;
@@ -88,18 +104,21 @@ public class GameManager {
     public static class SlowFallingAction {
         private final UUID playerUUID;
         private final int duration;
+        private final String donor;
 
-        public SlowFallingAction(UUID playerUUID, int duration) {
+        public SlowFallingAction(UUID playerUUID, int duration, String donor) {
             this.playerUUID = playerUUID;
             this.duration = duration;
+            this.donor = donor;
         }
 
         public UUID getPlayerUUID() { return playerUUID; }
         public int getDuration() { return duration; }
+        public String getDonor() { return donor; }
     }
 
     // interações e up down level
-    private final ConcurrentLinkedQueue<UUID> arrowQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<ArrowAction> arrowQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<SlowFallingAction> slowFallingQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<LevelAction> levelQueue = new ConcurrentLinkedQueue<>();
 
@@ -127,14 +146,14 @@ public class GameManager {
     private void startFlushProcessor() {
         flushTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             // Processa Flecha
-            UUID arrowUuid = arrowQueue.peek();
-            if (arrowUuid != null) {
-                Player player = Bukkit.getPlayer(arrowUuid);
+            ArrowAction arrowAction = arrowQueue.peek();
+            if (arrowAction != null) {
+                Player player = Bukkit.getPlayer(arrowAction.getPlayerUUID());
                 if (player == null || !player.isOnline()) {
                     arrowQueue.poll();
                 } else if (!live.getReset().isResetting(player) && !game.isWinner(player)) {
                     arrowQueue.poll();
-                    live.getArrow().shootFaceArrow(player);
+                    live.getArrow().shootFaceArrow(player, arrowAction.getDonor());
                 }
             }
 
@@ -145,7 +164,11 @@ public class GameManager {
                     slowFallingQueue.poll();
                 } else if (!live.getReset().isResetting(player) && !game.isWinner(player)) {
                     slowFallingQueue.poll();
-                    live.getPotionEffects().setSlowFalling(player, slowFallingAction.getDuration());
+                    live.getPotionEffects().setSlowFalling(
+                            player,
+                            slowFallingAction.getDuration(),
+                            slowFallingAction.getDonor()
+                    );
                 }
             }
 
@@ -248,14 +271,22 @@ public class GameManager {
 
     // Métodos públicos para enfileirar de forma segura (mesmo de threads externas)
     public void queueArrow(Player player) {
+        queueArrow(player, "Viewer");
+    }
+
+    public void queueArrow(Player player, String donor) {
         if (game.isPlaying(player)) {
-            arrowQueue.add(player.getUniqueId());
+            arrowQueue.add(new ArrowAction(player.getUniqueId(), donor));
         }
     }
 
     public void queueSlowFalling(Player player, int duration) {
+        queueSlowFalling(player, duration, "Viewer");
+    }
+
+    public void queueSlowFalling(Player player, int duration, String donor) {
         if (game.isPlaying(player)) {
-            slowFallingQueue.add(new SlowFallingAction(player.getUniqueId(), duration));
+            slowFallingQueue.add(new SlowFallingAction(player.getUniqueId(), duration, donor));
         }
     }
 
@@ -302,23 +333,52 @@ public class GameManager {
         return live;
     }
 
-    public ActionBarLoop getBossBarTask() {
-        return actionBarLoop;
-    }
-
-    //setters
-    /**
-     * Define e inicia um novo bossbar.
-     *
-     * @param bossBar
-     */
-    public void setBossBar(ActionBarLoop bossBar) {
-        if (this.actionBarLoop != null) {
-            this.actionBarLoop.stopLoop();
+    public void setBossBarLoop(BossBarLoop bossBarLoop) {
+        if (this.bossBarLoop != null) {
+            this.bossBarLoop.stopLoop();
         }
 
-        this.actionBarLoop = bossBar;
-        this.actionBarLoop.runTaskTimer(this.getPlugin(), 0L, 10L);
+        this.bossBarLoop = bossBarLoop;
+        this.bossBarLoop.runTaskTimer(this.getPlugin(), 0L, 10L);
+    }
+
+    public void stopBossBarLoop() {
+        if (bossBarLoop != null) {
+            bossBarLoop.stopLoop();
+            bossBarLoop = null;
+        }
+        hideAllBossBars();
+    }
+
+    public void updateBossBar(Player player, Component title, float progress) {
+        UUID uuid = player.getUniqueId();
+        BossBar bossBar = playerBossBars.get(uuid);
+        if (bossBar == null) {
+            bossBar = BossBar.bossBar(title, progress, BossBar.Color.PURPLE, BossBar.Overlay.PROGRESS);
+            playerBossBars.put(uuid, bossBar);
+            player.showBossBar(bossBar);
+            return;
+        }
+
+        bossBar.name(title);
+        bossBar.progress(progress);
+    }
+
+    public void hideBossBar(Player player) {
+        BossBar bossBar = playerBossBars.remove(player.getUniqueId());
+        if (bossBar != null) {
+            player.hideBossBar(bossBar);
+        }
+    }
+
+    public void hideAllBossBars() {
+        for (Map.Entry<UUID, BossBar> entry : playerBossBars.entrySet()) {
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player != null) {
+                player.hideBossBar(entry.getValue());
+            }
+        }
+        playerBossBars.clear();
     }
 
     public void resetStatusPlayer(Player player) {

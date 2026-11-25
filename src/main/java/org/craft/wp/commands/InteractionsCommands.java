@@ -7,6 +7,8 @@ import org.bukkit.entity.Player;
 import org.craft.wp.manager.GameManager;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
+
 public class InteractionsCommands implements CommandExecutor {
 
     private final GameManager gameManager;
@@ -30,8 +32,8 @@ public class InteractionsCommands implements CommandExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, @NotNull String[] args) {
         if (cmd.getName().equalsIgnoreCase(cmd1)) {
-            if (args.length != 1) {
-                sender.sendMessage("§cUse no console/S2E: /" + cmd1 + " <player>");
+            if (args.length < 1) {
+                sender.sendMessage("§cUse no console/S2E: /" + cmd1 + " <player> [doador]");
                 return true;
             }
 
@@ -41,7 +43,10 @@ public class InteractionsCommands implements CommandExecutor {
                 return true;
             }
 
-            gameManager.queueArrow(target);
+            String donor = args.length > 1
+                    ? String.join(" ", Arrays.copyOfRange(args, 1, args.length))
+                    : "Viewer";
+            gameManager.queueArrow(target, donor);
 
             return true;
         }
@@ -109,7 +114,7 @@ public class InteractionsCommands implements CommandExecutor {
 
         if (cmd.getName().equalsIgnoreCase(cmd5)) {
             if (args.length < 2) {
-                sender.sendMessage("§cUse no console/S2E: /" + cmd5 + " <player> <qty>");
+                sender.sendMessage("§cUse no console/S2E: /" + cmd5 + " <player> <qty> [doador]");
                 return true;
             }
 
@@ -126,9 +131,10 @@ public class InteractionsCommands implements CommandExecutor {
                     return true;
                 }
 
-//                String donor = (args.length >= 4) ? args[3] : "";
-
-                gameManager.queueSlowFalling(target, time);
+                String donor = args.length > 2
+                        ? String.join(" ", Arrays.copyOfRange(args, 2, args.length))
+                        : "Viewer";
+                gameManager.queueSlowFalling(target, time, donor);
             } catch (NumberFormatException e) {
                 sender.sendMessage("§cO tempo deve ser um número inteiro válido.");
             }

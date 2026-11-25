@@ -59,6 +59,7 @@ public class DropperListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        gameManager.hideBossBar(player);
 
         if (gameManager.playingPlayers.contains(player.getUniqueId())) {
             gameManager.playingPlayers.remove(player.getUniqueId());
@@ -66,6 +67,10 @@ public class DropperListener implements Listener {
             if (gameManager.playingPlayers.isEmpty()) {
                 gameManager.getHologramManager().removeAllHolograms();
             }
+        }
+
+        if (gameManager.playingPlayers.isEmpty()) {
+            gameManager.stopBossBarLoop();
         }
     }
 
