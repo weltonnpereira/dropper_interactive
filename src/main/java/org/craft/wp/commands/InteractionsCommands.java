@@ -142,50 +142,49 @@ public class InteractionsCommands implements CommandExecutor {
             return true;
         }
 
-//        if (cmd.getName().equalsIgnoreCase(cmd5)) {
-//            if (args.length < 2) {
-//                sender.sendMessage("§cUse: /" + cmd5 + " <player> <arrest/release> [time/donor] [donor]");
-//                return true;
-//            }
-//
-//            Player target = gameManager.getPlugin().getServer().getPlayer(args[0]);
-//            if (target == null) {
-//                sender.sendMessage("§cJogador não encontrado ou offline.");
-//                return true;
-//            }
-//
-//            String action = args[1].toLowerCase();
-//            switch (action) {
-//                case "arrest" -> {
-//                    if (args.length < 3) {
-//                        sender.sendMessage("§cUse: /" + cmd5 + " <player> arrest <tempo_segundos> [doador]");
-//                        return true;
-//                    }
-//
-//                    try {
-//                        int time = Integer.parseInt(args[2]);
-//                        if (time <= 0) {
-//                            sender.sendMessage("§cO tempo deve ser um número positivo.");
-//                            return true;
-//                        }
-//
-//                        String donor = (args.length >= 4) ? args[3] : "";
-//
-//                        gameManager.queueJail(target, time, donor);
-//                    } catch (NumberFormatException e) {
-//                        sender.sendMessage("§cO tempo deve ser um número inteiro válido.");
-//                    }
-//                }
-//                case "release" -> {
-//                    String donor = (args.length >= 3) ? args[2] : null;
-//                    gameManager.getLive().getJail().release(target, donor);
-//                }
-//                default -> sender.sendMessage("§cAção inválida! Use 'arrest' ou 'release'.");
-//            }
-//
-//            return true;
-//        }
+        if (cmd.getName().equalsIgnoreCase(cmd5)) {
+            if (args.length < 2) {
+                sender.sendMessage("§cUse: /" + cmd5 + " <player> <arrest/release> [time/donor] [donor]");
+                return true;
+            }
 
+            Player target = gameManager.getPlugin().getServer().getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("§cJogador não encontrado ou offline.");
+                return true;
+            }
+
+            String action = args[1].toLowerCase();
+            switch (action) {
+                case "arrest" -> {
+                    if (args.length < 3) {
+                        sender.sendMessage("§cUse: /" + cmd5 + " <player> arrest <tempo_segundos> [doador]");
+                        return true;
+                    }
+
+                    try {
+                        int time = Integer.parseInt(args[2]);
+                        if (time <= 0) {
+                            sender.sendMessage("§cO tempo deve ser um número positivo.");
+                            return true;
+                        }
+
+                        String donor = (args.length >= 4) ? args[3] : "";
+
+                        gameManager.queueJail(target, time, donor);
+                    } catch (NumberFormatException e) {
+                        sender.sendMessage("§cO tempo deve ser um número inteiro válido.");
+                    }
+                }
+                case "release" -> {
+                    String donor = (args.length >= 3) ? args[2] : null;
+                    gameManager.getLive().getJail().release(target, donor);
+                }
+                default -> sender.sendMessage("§cAção inválida! Use 'arrest' ou 'release'.");
+            }
+
+            return true;
+        }
         return false;
     }
 }

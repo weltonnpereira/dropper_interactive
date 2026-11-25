@@ -60,7 +60,7 @@ public class PotionEffects {
         );
 
         player.addPotionEffect(slowFalling, true);
-        ActionBarNotifier.send(player, donor, "Queda Lenta");
+        ActionBarNotifier.send(player, donor, "usou queda lenta");
 
         // Feedback sonoro gratificante para o chat/streamer
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);

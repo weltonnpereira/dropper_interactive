@@ -27,7 +27,7 @@ public class ArrowShoot {
             return;
         }
 
-        ActionBarNotifier.send(player, donor, "Flecha");
+        ActionBarNotifier.send(player, donor, "te acertou");
 
         Location eyeLoc = player.getEyeLocation();
 
