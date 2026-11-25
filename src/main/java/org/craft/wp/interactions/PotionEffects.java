@@ -20,7 +20,7 @@ public class PotionEffects {
      *
      * @param player  O jogador que receberá o efeito
      * @param seconds Quantidade de segundos a serem somados
-     */w
+     */
     public void setSlowFalling(Player player, int seconds, String donor) {
         if (player == null || !player.isOnline()) return;
 
