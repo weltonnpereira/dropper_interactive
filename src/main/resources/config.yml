@@ -9,4 +9,15 @@
 # PT: Insira sua chave de licença adquirida dentro das aspas (""). O plugin só funcionará com uma chave válida.
 license-key: "INSERT-YOUR-KEY-HERE"
 
+# EN: List of additional worlds to be loaded automatically when the server starts.
+#     By default, Minecraft only loads the main world (world, nether, end). Add the exact folder
+#     names of your extra Dropper maps here so the plugin can teleport players between different worlds.
+#     Note: Using the /dp <world> command in-game also adds the world to this list automatically.
+#
+# PT: Lista de mundos adicionais que serão carregados automaticamente quando o servidor iniciar.
+#     Por padrão, o Minecraft carrega apenas o mundo principal (world, nether, end). Adicione aqui o nome
+#     exato das pastas dos seus mapas extras de Dropper para permitir o teleporte entre mundos diferentes.
+#     Nota: Usar o comando /dp <mundo> dentro do jogo também adiciona o mundo nesta lista automaticamente.
 extra-worlds:
+  - "dropper_1"
+  - "dropper_2"
