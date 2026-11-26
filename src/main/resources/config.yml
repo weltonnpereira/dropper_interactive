@@ -1,4 +1,12 @@
 # Plugin Made by
 # Wp Voxel
 
+# =====================================================================
+# LiveDropper - Configuration / Configuração
+# =====================================================================
+
+# EN: Enter your purchased license key inside the quotes (""). The plugin will only work with a valid key.
+# PT: Insira sua chave de licença adquirida dentro das aspas (""). O plugin só funcionará com uma chave válida.
+license-key: "INSERT-YOUR-KEY-HERE"
+
 extra-worlds:

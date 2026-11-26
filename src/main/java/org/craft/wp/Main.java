@@ -11,6 +11,7 @@ import org.craft.wp.commands.DropperSetup;
 import org.craft.wp.listeners.Auxiliaries;
 import org.craft.wp.listeners.DropperListener;
 import org.craft.wp.manager.GameManager;
+import org.craft.wp.network.LicenseChecker;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +27,38 @@ public final class Main extends JavaPlugin {
     public void onEnable() {
         // Plugin startup logic
         saveDefaultConfig();
+
+        getLogger().info("Ligando Plugin...");
+
+        saveDefaultConfig();
+
+        String licenseKey = getConfig().getString("license-key", "");
+
+        if (licenseKey == null || licenseKey.trim().isEmpty() || licenseKey.equalsIgnoreCase("INSERT-YOUR-KEY-HERE")) {
+            String box = "==================================================";
+            getLogger().severe(box);
+            getLogger().severe("A CHAVE DE LICENÇA ESTÁ AUSENTE NO config.yml!");
+            getLogger().severe("Por favor, insira sua chave de licença no arquivo config.yml.");
+            getLogger().severe("Após salvar, reinicie o servidor para aplicar a chave.");
+            getLogger().severe(box);
+
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        boolean isValid = LicenseChecker.verifyLicense(licenseKey);
+        if (!isValid) {
+            String box = "==================================================";
+            getLogger().severe(box);
+            getLogger().severe("FALHA NA AUTENTICACAO DA LICENCA!");
+            getLogger().severe(" O plugin nao pode ser ativado.");
+            getLogger().severe(box);
+
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        Bukkit.getConsoleSender().sendMessage("Licenca autenticada com sucesso! Inicializando...");
 
         loadExtraWorlds();
 
